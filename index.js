@@ -10,17 +10,18 @@ const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
 const TOKEN = process.env.TOKEN;
-const CLIENT_ID = '1460601983097635050'; // twoje application ID
+const CLIENT_ID = '1460601983097635050';
 const POPCAT_EMOJI_ID = '1460612078472794239';
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+// ===== KOMENDY =====
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Ustaw kanał do wiadomości aktywności')
+    .setDescription('Ustaw kanał do testów aktywności')
     .addChannelOption(o =>
       o.setName('kanal').setDescription('Kanał').setRequired(true)
     ),
@@ -31,40 +32,51 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('embed')
-    .setDescription('Wyślij embed (admin)')
-    .addStringOption(o => o.setName('text').setDescription('Treść').setRequired(true))
-    .addStringOption(o => o.setName('title').setDescription('Tytuł').setRequired(false))
-    .addStringOption(o => o.setName('color').setDescription('Kolor HEX np. #ff00ff').setRequired(false)),
+    .setDescription('Wyślij wiadomość w embedzie')
+    .addStringOption(o =>
+      o.setName('tekst').setDescription('Treść').setRequired(true)
+    )
+    .addStringOption(o =>
+      o.setName('tytul').setDescription('Opcjonalny tytuł')
+    )
+    .addStringOption(o =>
+      o.setName('kolor').setDescription('Opcjonalny kolor hex, np. #ff00ff')
+    ),
 
   new SlashCommandBuilder()
     .setName('embed_regulamin')
-    .setDescription('Wyślij regulamin w embedzie (admin)')
+    .setDescription('Wyślij regulamin w embedzie')
 ].map(c => c.toJSON());
 
+// ===== REJESTRACJA =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
   await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-  console.log('✅ Komendy zarejestrowane');
+  console.log('Komendy zarejestrowane');
 })();
 
+// ===== READY =====
 client.once('ready', () => {
-  console.log(`🤖 Zalogowano jako ${client.user.tag}`);
+  console.log(`Zalogowano jako ${client.user.tag}`);
+  client.user.setActivity('ELicatowo 🐾');
 });
 
+// ===== INTERAKCJE =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: '❌ Tylko administrator.', ephemeral: true });
+    return interaction.reply({ content: 'Tylko administracja.', ephemeral: true });
   }
 
+  // /setup
   if (interaction.commandName === 'setup') {
-    const channel = interaction.options.getChannel('kanal');
-    fs.writeFileSync('config.json', JSON.stringify({ channelId: channel.id }));
-    return interaction.reply({ content: '✅ Kanał zapisany.', ephemeral: true });
+    const ch = interaction.options.getChannel('kanal');
+    fs.writeFileSync('config.json', JSON.stringify({ channelId: ch.id }));
+    return interaction.reply({ content: 'Kanał ustawiony.', ephemeral: true });
   }
 
+  // /aktywnosc
   if (interaction.commandName === 'aktywnosc') {
     const config = JSON.parse(fs.readFileSync('config.json'));
     const channel = await client.channels.fetch(config.channelId);
@@ -73,54 +85,74 @@ client.on('interactionCreate', async interaction => {
 
     const embed = new EmbedBuilder()
       .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
-      .setDescription(`🔥 Pokaż, że tu jesteś!\n\n💜 Test wygenerowany przez ${interaction.user.tag}`)
+      .setDescription(`
+💜 **WITAJCIE, Elicatowo!** 💜  
+👑 Czas sprawdzić, kto jest **NAJAKTYWNIEJSZY**  
+🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
+
+💬 pisz na czatach  
+💜 reaguj emotkami  
+👀 bądź widoczny  
+
+**AKTYWNOŚĆ = RESPEKT**  
+`)
+      .setFooter({ text: `Test wygenerowany przez ${interaction.user.tag}` })
       .setColor(0x9b59b6)
       .setTimestamp();
 
     const msg = await channel.send({ embeds: [embed] });
     await msg.react(`<:popcat:${POPCAT_EMOJI_ID}>`);
 
-    return interaction.reply({ content: 'GOTOWE ✅', ephemeral: true });
+    return interaction.reply({ content: 'GOTOWE', ephemeral: true });
   }
 
+  // /embed
   if (interaction.commandName === 'embed') {
-    const text = interaction.options.getString('text');
-    const title = interaction.options.getString('title');
-    const color = interaction.options.getString('color') || '#9b59b6';
+    const text = interaction.options.getString('tekst');
+    const title = interaction.options.getString('tytul');
+    const color = interaction.options.getString('kolor');
 
-    const embed = new EmbedBuilder()
-      .setDescription(text)
-      .setColor(color);
-
+    const embed = new EmbedBuilder().setDescription(text);
     if (title) embed.setTitle(title);
+    if (color) embed.setColor(color.replace('#', '0x'));
 
     await interaction.channel.send({ embeds: [embed] });
-    return interaction.reply({ content: '✅ Embed wysłany.', ephemeral: true });
+    return interaction.reply({ content: 'Wysłano embed.', ephemeral: true });
   }
 
+  // /embed_regulamin
   if (interaction.commandName === 'embed_regulamin') {
-    const embed = new EmbedBuilder()
+    const regulamin = new EmbedBuilder()
       .setTitle('👑 Regulamin Serwera ELicatowo 👑')
       .setDescription(`
+Witaj na ELicatowie – oficjalnym serwerze zarządzanym przez duet CEO: Elizę oraz Popcata!
+
 🐾 **I. Zarząd i Władza**
-Eliza i Popcat – decyzje ostateczne.
+Dwoje CEO: Eliza i Popcat  
+Szacunek dla ekipy
 
 🐱 **II. Kodeks Kociarza**
-Kochamy koty, zero hejtu, kultura.
+Kult kotów  
+Zakaz hejtu  
+Kultura wypowiedzi
 
 💼 **III. Porządek**
-Bez spamu, bez NSFW, odpowiednie kanały.
+Bez spamu  
+Odpowiednie kanały  
+Zakaz NSFW  
+Zakaz podrywania osób zajętych
 
 🚫 **IV. Sankcje**
-Mute • Kick • Ban
+Mute  
+Kick  
+Ban  
 
 Podpisano: **Eliza & Popcat** 🐾
 `)
-      .setColor(0x9b59b6)
-      .setTimestamp();
+      .setColor(0xf1c40f);
 
-    await interaction.channel.send({ embeds: [embed] });
-    return interaction.reply({ content: '✅ Regulamin wysłany.', ephemeral: true });
+    await interaction.channel.send({ embeds: [regulamin] });
+    return interaction.reply({ content: 'Regulamin wysłany.', ephemeral: true });
   }
 });
 
