@@ -9,61 +9,58 @@ const {
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
-// === ENV ===
 const TOKEN = process.env.TOKEN;
-const CLIENT_ID = '1460601983097635050'; // ID aplikacji
-const POPCAT_EMOJI_ID = '1460612078472794239'; // ID emotki
+const CLIENT_ID = '1460601983097635050';
+const POPCAT_ID = '1460612078472794239';
 
-// === CLIENT ===
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// === KOMENDY ===
+// ===== SLASH COMMANDS =====
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Ustaw kanał do wiadomości aktywności')
+    .setDescription('Ustaw kanał do testu aktywności')
     .addChannelOption(option =>
       option.setName('kanal')
-        .setDescription('Kanał do wysyłania aktywności')
+        .setDescription('Kanał')
         .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName('aktywnosc')
-    .setDescription('Wyślij test aktywności członków'),
+    .setDescription('Wyślij test aktywności'),
 
   new SlashCommandBuilder()
     .setName('embed')
-    .setDescription('Wyślij wiadomość w embedzie')
+    .setDescription('Wyślij wiadomość jako embed')
     .addStringOption(option =>
       option.setName('wiadomosc')
         .setDescription('Treść embeda')
         .setRequired(true)
     )
-].map(cmd => cmd.toJSON());
+].map(c => c.toJSON());
 
-// === REJESTRACJA KOMEND ===
+// ===== REGISTER =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
   try {
-    console.log('⏳ Rejestruję komendy...');
+    console.log('Rejestruję komendy...');
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log('✅ Komendy zarejestrowane');
-  } catch (err) {
-    console.error(err);
+    console.log('Komendy gotowe!');
+  } catch (e) {
+    console.error(e);
   }
 })();
 
-// === READY ===
+// ===== READY =====
 client.once('ready', () => {
-  console.log(`🤖 Zalogowano jako ${client.user.tag}`);
+  console.log(`Zalogowano jako ${client.user.tag}`);
   client.user.setActivity('Aktywność Serwera');
 });
 
-// === INTERAKCJE ===
+// ===== INTERACTIONS =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -87,23 +84,18 @@ client.on('interactionCreate', async interaction => {
 
     const embed = new EmbedBuilder()
       .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
-      .setDescription(`
-💜 **WITAJCIE!** 💜  
-🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
-💬 pisz  
-💜 reaguj  
-👀 bądź aktywny  
-**AKTYWNOŚĆ = RESPEKT**
-`)
+      .setDescription(`💜 **WITAJCIE, Elicatowo!** 💜
+👑 Sprawdzamy kto jest najaktywniejszy!
+💬 Pisz, reaguj, bądź widoczny!
+**AKTYWNOŚĆ = RESPEKT**`)
       .setColor(0x9b59b6)
       .setFooter({ text: `Test wygenerowany przez ${interaction.user.tag}` })
       .setTimestamp();
 
-    await channel.send('@everyone');
-    const msg = await channel.send({ embeds: [embed] });
-    await msg.react(POPCAT_EMOJI_ID);
+    const msg = await channel.send({ content: '@everyone', embeds: [embed] });
+    await msg.react(`<:popcat:${POPCAT_ID}>`);
 
-    return interaction.editReply('✅ GOTOWE.');
+    return interaction.editReply('✅ Gotowe!');
   }
 
   // /embed
@@ -113,14 +105,13 @@ client.on('interactionCreate', async interaction => {
     const embed = new EmbedBuilder()
       .setTitle('📢 Wiadomość')
       .setDescription(text)
-      .setColor(0x3498db)
+      .setColor(0x9b59b6)
       .setFooter({ text: `Wysłane przez ${interaction.user.tag}` })
       .setTimestamp();
 
     await interaction.channel.send({ embeds: [embed] });
-    return interaction.reply({ content: '✅ Wysłano embed.', ephemeral: true });
+    return interaction.reply({ content: '✅ Embed wysłany.', ephemeral: true });
   }
 });
 
-// === LOGIN ===
 client.login(TOKEN);
