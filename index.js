@@ -9,15 +9,15 @@ const {
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
-const TOKEN = process.env.TOKEN;
-const CLIENT_ID = '1460601983097635050';
-const POPCAT = '460235965317648514';
+const TOKEN = process.env.TOKEN; // token w zmiennej środowiskowej
+const CLIENT_ID = '1460601983097635050'; // ID aplikacji
+const POPCAT = '460235965317648514'; // ID emotki popcat
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-/* ===== KOMENDY ===== */
+/* ===== REJESTRACJA KOMEND ===== */
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
@@ -65,7 +65,7 @@ client.once('ready', () => {
   });
 });
 
-/* ===== INTERAKCJE ===== */
+/* ===== OBSŁUGA KOMEND ===== */
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -73,37 +73,46 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: '❌ Tylko administracja.', ephemeral: true });
   }
 
-  // SETUP
+  // SETUP AKTYWNOŚCI
   if (interaction.commandName === 'setup') {
     const kanal = interaction.options.getChannel('kanal');
     fs.writeFileSync('config.json', JSON.stringify({ aktywnosc: kanal.id }, null, 2));
     return interaction.reply({ content: '✅ Kanał aktywności zapisany.', ephemeral: true });
   }
 
-  // AKTYWNOŚĆ
+  // TEST AKTYWNOŚCI (OPCJA B: @everyone osobno na górze)
   if (interaction.commandName === 'aktywnosc') {
     await interaction.deferReply({ ephemeral: true });
+
+    if (!fs.existsSync('config.json')) {
+      return interaction.editReply('❌ Najpierw użyj /setup aktywnosc');
+    }
 
     const { aktywnosc } = JSON.parse(fs.readFileSync('config.json'));
     const channel = await client.channels.fetch(aktywnosc);
 
+    // @everyone jako osobna wiadomość na samej górze
     await channel.send('@everyone');
 
     const embed = new EmbedBuilder()
-      .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW ELicatowa')
+      .setTitle('📈 TEST AKTYWNOŚCI')
       .setDescription(`
 💜 **WITAJCIE, Elicatowo!** 💜  
-To oficjalny test aktywności serwera zarządzanego przez CEO: **Elizę & Popcata** 🐾  
+👑 Czas sprawdzić, kto jest **NAJAKTYWNIEJSZY**  
 
-🔥 **POKAŻ, ŻE TU JESTEŚ!** 🔥  
-➡️ Napisz coś na czacie  
-➡️ Zareaguj na tę wiadomość  
-➡️ Bądź widoczny i aktywny  
+🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
+💬 pisz  
+💜 reaguj  
+👀 bądź widoczny  
 
-📊 Aktywność = rangi, respekt i kocia duma  
-😼 Kto się nie odezwie, ten śpi jak leniwy kot  
+**AKTYWNOŚĆ = RESPEKT**
 
-**MRRR… CZEKAMY NA WAS!** 🐱
+👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:**  
+🐱 prestiż  
+🐱 uznanie  
+🐱 respekt  
+
+💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
       `)
       .setColor(0x9b59b6)
       .setTimestamp();
@@ -111,7 +120,7 @@ To oficjalny test aktywności serwera zarządzanego przez CEO: **Elizę & Popcat
     const msg = await channel.send({ embeds: [embed] });
     await msg.react(POPCAT);
 
-    return interaction.editReply('GOTOWE ✅ Test aktywności wysłany.');
+    return interaction.editReply('✅ Test aktywności wysłany.');
   }
 
   // EMBED
