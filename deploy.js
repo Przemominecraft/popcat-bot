@@ -1,5 +1,8 @@
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
-const { token, clientId, guildId } = require('./config.json');
+
+const token = process.env.TOKEN;
+const clientId = process.env.CLIENT_ID;
+const guildId = process.env.GUILD_ID;
 
 const commands = [
   new SlashCommandBuilder()
@@ -20,38 +23,28 @@ const commands = [
     .setDescription('System warnów')
     .addSubcommand(sub =>
       sub.setName('add')
-        .setDescription('Dodaj warna')
-        .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true))
-        .addStringOption(o => o.setName('powod').setDescription('Powód').setRequired(true)))
+        .addUserOption(o => o.setName('osoba').setRequired(true))
+        .addStringOption(o => o.setName('powod').setRequired(true)))
     .addSubcommand(sub =>
       sub.setName('remove')
-        .setDescription('Usuń warny')
-        .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true))
-        .addIntegerOption(o => o.setName('ilosc').setDescription('Ilość').setRequired(true)))
+        .addUserOption(o => o.setName('osoba').setRequired(true))
+        .addIntegerOption(o => o.setName('ilosc').setRequired(true)))
     .addSubcommand(sub =>
       sub.setName('clear')
-        .setDescription('Wyczyść warny')
-        .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true))),
+        .addUserOption(o => o.setName('osoba').setRequired(true))),
 
   new SlashCommandBuilder()
     .setName('warny')
-    .setDescription('Sprawdź ilość warnów')
-    .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true)),
+    .addUserOption(o => o.setName('osoba').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('clear')
-    .setDescription('Usuń wiadomości')
-    .addIntegerOption(o => o.setName('ilosc').setDescription('Ilość').setRequired(true))
-].map(cmd => cmd.toJSON());
+    .addIntegerOption(o => o.setName('ilosc').setRequired(true))
+].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  try {
-    console.log('Rejestruję komendy...');
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
-    console.log('Gotowe!');
-  } catch (error) {
-    console.error(error);
-  }
+  await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
+  console.log('Komendy zarejestrowane!');
 })();
