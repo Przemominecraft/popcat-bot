@@ -9,87 +9,65 @@ const {
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
-// ===== ENV =====
-const TOKEN = process.env.TOKEN; // BEZ STRINGA
-const CLIENT_ID = '1460601983097635050'; // ID aplikacji bota
+// === ENV ===
+const TOKEN = process.env.TOKEN; // bez cudzysłowów
+const CLIENT_ID = '1460601983097635050'; // ID twojej aplikacji
 
-// ===== CLIENT =====
+// === CLIENT ===
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ===== SLASH COMMANDS =====
+// === KOMENDY ===
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
     .setDescription('Ustaw kanał do wiadomości aktywności')
     .addChannelOption(option =>
-      option
-        .setName('kanal')
+      option.setName('kanal')
         .setDescription('Kanał do wysyłania aktywności')
         .setRequired(true)
     ),
-
   new SlashCommandBuilder()
     .setName('aktywnosc')
     .setDescription('Wyślij test aktywności członków')
 ].map(cmd => cmd.toJSON());
 
-// ===== REGISTER COMMANDS =====
+// === REJESTRACJA KOMEND ===
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
   try {
     console.log('⏳ Rejestruję komendy...');
-    await rest.put(
-      Routes.applicationCommands(CLIENT_ID),
-      { body: commands }
-    );
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
     console.log('✅ Komendy zarejestrowane');
   } catch (err) {
     console.error('❌ Błąd rejestracji komend:', err);
   }
 })();
 
-// ===== READY =====
+// === READY ===
 client.once('ready', () => {
   console.log(`🤖 Zalogowano jako ${client.user.tag}`);
   client.user.setActivity('Aktywność Serwera');
 });
 
-// ===== INTERACTIONS =====
+// === INTERAKCJE ===
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  // tylko administrator
   if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({
-      content: '❌ Tylko administrator może użyć tej komendy.',
-      ephemeral: true
-    });
+    return interaction.reply({ content: '❌ Tylko administrator może użyć tej komendy.', ephemeral: true });
   }
 
-  // ===== /setup =====
   if (interaction.commandName === 'setup') {
     const channel = interaction.options.getChannel('kanal');
-    fs.writeFileSync(
-      'config.json',
-      JSON.stringify({ channelId: channel.id }, null, 2)
-    );
-
-    return interaction.reply({
-      content: `✅ Kanał ustawiony na ${channel}`,
-      ephemeral: true
-    });
+    fs.writeFileSync('config.json', JSON.stringify({ channelId: channel.id }, null, 2));
+    return interaction.reply({ content: `✅ Kanał ustawiony na ${channel}`, ephemeral: true });
   }
 
-  // ===== /aktywnosc =====
   if (interaction.commandName === 'aktywnosc') {
     if (!fs.existsSync('config.json')) {
-      return interaction.reply({
-        content: '❌ Najpierw użyj /setup',
-        ephemeral: true
-      });
+      return interaction.reply({ content: '❌ Najpierw użyj /setup', ephemeral: true });
     }
 
     const config = JSON.parse(fs.readFileSync('config.json'));
@@ -98,13 +76,8 @@ client.on('interactionCreate', async interaction => {
     const embed = new EmbedBuilder()
       .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
       .setDescription(`
-@everyone
-
 💜 **WITAJCIE, Elicatowo!** 💜  
-
-👑 **Czas sprawdzić,**
-kto jest **NAJAKTYWNIEJSZY** na serwerze  
-
+👑 **Czas sprawdzić, kto jest NAJAKTYWNIEJSZY**  
 🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
 💬 pisz na czatach  
 💜 reaguj emotkami  
@@ -120,19 +93,17 @@ kto jest **NAJAKTYWNIEJSZY** na serwerze
 💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
 `)
       .setColor(0x9b59b6)
-      .setFooter({
-        text: `Test wygenerowany przez ${interaction.user.tag}`
-      })
+      .setFooter({ text: `Test wygenerowany przez ${interaction.user.tag}` })
       .setTimestamp();
 
+    // najpierw ping
+    await channel.send('@everyone');
+    // potem embed
     await channel.send({ embeds: [embed] });
 
-    return interaction.reply({
-      content: '✅ Wiadomość wysłana!',
-      ephemeral: true
-    });
+    return interaction.reply({ content: '✅ Test aktywności wysłany!', ephemeral: true });
   }
 });
 
-// ===== LOGIN =====
+// === LOGIN ===
 client.login(TOKEN);
