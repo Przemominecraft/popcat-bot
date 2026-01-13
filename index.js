@@ -3,21 +3,22 @@ const {
   GatewayIntentBits,
   PermissionsBitField,
   SlashCommandBuilder,
-  Routes
+  Routes,
+  EmbedBuilder
 } = require('discord.js');
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
-// === ENV ===
-const TOKEN = process.env.TOKEN; // ❗ BEZ STRINGA
-const CLIENT_ID = '1460601983097635050'; // ID NOWEJ aplikacji
+// ===== ENV =====
+const TOKEN = process.env.TOKEN; // BEZ STRINGA
+const CLIENT_ID = '1460601983097635050'; // ID aplikacji bota
 
-// === CLIENT ===
+// ===== CLIENT =====
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// === KOMENDY ===
+// ===== SLASH COMMANDS =====
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
@@ -34,7 +35,7 @@ const commands = [
     .setDescription('Wyślij test aktywności członków')
 ].map(cmd => cmd.toJSON());
 
-// === REJESTRACJA KOMEND ===
+// ===== REGISTER COMMANDS =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
@@ -50,13 +51,13 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-// === READY ===
+// ===== READY =====
 client.once('ready', () => {
   console.log(`🤖 Zalogowano jako ${client.user.tag}`);
   client.user.setActivity('Aktywność Serwera');
 });
 
-// === INTERAKCJE ===
+// ===== INTERACTIONS =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -68,12 +69,13 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // /setup
+  // ===== /setup =====
   if (interaction.commandName === 'setup') {
     const channel = interaction.options.getChannel('kanal');
-    const config = { channelId: channel.id };
-
-    fs.writeFileSync('config.json', JSON.stringify(config, null, 2));
+    fs.writeFileSync(
+      'config.json',
+      JSON.stringify({ channelId: channel.id }, null, 2)
+    );
 
     return interaction.reply({
       content: `✅ Kanał ustawiony na ${channel}`,
@@ -81,7 +83,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // /aktywnosc
+  // ===== /aktywnosc =====
   if (interaction.commandName === 'aktywnosc') {
     if (!fs.existsSync('config.json')) {
       return interaction.reply({
@@ -94,11 +96,12 @@ client.on('interactionCreate', async interaction => {
     const channel = await client.channels.fetch(config.channelId);
 
     const embed = new EmbedBuilder()
-  .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
-  .setDescription(`
+      .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
+      .setDescription(`
 @everyone
 
 💜 **WITAJCIE, Elicatowo!** 💜  
+
 👑 **Czas sprawdzić,**
 kto jest **NAJAKTYWNIEJSZY** na serwerze  
 
@@ -116,18 +119,13 @@ kto jest **NAJAKTYWNIEJSZY** na serwerze
 
 💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
 `)
-  .setColor(0x9b59b6)
-  .setFooter({
-    text: `Test wygenerowany przez ${interaction.user.tag}`
-  })
-  .setTimestamp();
+      .setColor(0x9b59b6)
+      .setFooter({
+        text: `Test wygenerowany przez ${interaction.user.tag}`
+      })
+      .setTimestamp();
 
-await channel.send({ embeds: [embed] });
-
-💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
-`;
-
-    await channel.send(message);
+    await channel.send({ embeds: [embed] });
 
     return interaction.reply({
       content: '✅ Wiadomość wysłana!',
@@ -136,6 +134,5 @@ await channel.send({ embeds: [embed] });
   }
 });
 
-// === LOGIN ===
+// ===== LOGIN =====
 client.login(TOKEN);
-
