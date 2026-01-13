@@ -1,143 +1,154 @@
-const {
-  Client,
-  GatewayIntentBits,
-  PermissionsBitField,
-  SlashCommandBuilder,
-  Routes,
-  EmbedBuilder
-} = require('discord.js');
-const { REST } = require('@discordjs/rest');
+const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, PermissionsBitField } = require('discord.js');
 const fs = require('fs');
 
-const TOKEN = process.env.TOKEN; // token w zmiennej środowiskowej
-const CLIENT_ID = '1460601983097635050'; // ID aplikacji
-const POPCAT = '460235965317648514'; // ID emotki popcat
-
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
 });
 
-/* ===== REJESTRACJA KOMEND ===== */
-const commands = [
-  new SlashCommandBuilder()
-    .setName('setup')
-    .setDescription('Ustawienia bota')
-    .addSubcommand(sub =>
-      sub.setName('aktywnosc')
-        .setDescription('Ustaw kanał do testu aktywności')
-        .addChannelOption(opt =>
-          opt.setName('kanal')
-            .setDescription('Kanał')
-            .setRequired(true)
-        )
-    ),
+const warnsFile = './warns.json';
+if (!fs.existsSync(warnsFile)) fs.writeFileSync(warnsFile, JSON.stringify({}));
 
-  new SlashCommandBuilder()
-    .setName('aktywnosc')
-    .setDescription('Wyślij test aktywności'),
+let warns = JSON.parse(fs.readFileSync(warnsFile));
 
-  new SlashCommandBuilder()
-    .setName('embed')
-    .setDescription('Wyślij embed')
-    .addStringOption(o =>
-      o.setName('tekst').setDescription('Treść').setRequired(true)
-    )
-    .addStringOption(o =>
-      o.setName('tytul').setDescription('Tytuł').setRequired(false)
-    )
-    .addStringOption(o =>
-      o.setName('kolor').setDescription('Kolor HEX np. #9b59b6').setRequired(false)
-    )
-].map(c => c.toJSON());
+client.once('ready', async () => {
+    console.log(`Zalogowano jako ${client.user.tag}`);
 
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-(async () => {
-  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-  console.log('✅ Komendy zarejestrowane');
-})();
+    const commands = [
+        new SlashCommandBuilder()
+            .setName('setup')
+            .setDescription('Ustawienia bota')
+            .addSubcommand(sc =>
+                sc.setName('aktywnosc')
+                  .setDescription('Ustaw kanał testu aktywności')
+                  .addChannelOption(o =>
+                      o.setName('kanal')
+                       .setDescription('Kanał na test aktywności')
+                       .setRequired(true)
+                  )
+            ),
 
-/* ===== READY ===== */
-client.once('ready', () => {
-  console.log(`🤖 Zalogowano jako ${client.user.tag}`);
-  client.user.setPresence({
-    activities: [{ name: 'ELicatowo 🐾' }],
-    status: 'online'
-  });
+        new SlashCommandBuilder()
+            .setName('aktywnosc')
+            .setDescription('Wysyła test aktywności'),
+
+        new SlashCommandBuilder()
+            .setName('warn')
+            .setDescription('Nadaj warna')
+            .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true))
+            .addStringOption(o => o.setName('powod').setDescription('Powód').setRequired(true))
+            .addStringOption(o => o.setName('mija').setDescription('Kiedy mija (lub Nigdy)').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('warn_remove')
+            .setDescription('Usuń warny')
+            .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true))
+            .addIntegerOption(o => o.setName('ilosc').setDescription('Ilość').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('warn_clear')
+            .setDescription('Wyczyść warny')
+            .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('warny')
+            .setDescription('Sprawdź ilość warnów')
+            .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('clear')
+            .setDescription('Usuń wiadomości')
+            .addIntegerOption(o => o.setName('ilosc').setDescription('Ilość').setRequired(true))
+    ];
+
+    await client.application.commands.set(commands);
 });
 
-/* ===== OBSŁUGA KOMEND ===== */
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+    if (!interaction.isChatInputCommand()) return;
 
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: '❌ Tylko administracja.', ephemeral: true });
-  }
-
-  // SETUP AKTYWNOŚCI
-  if (interaction.commandName === 'setup') {
-    const kanal = interaction.options.getChannel('kanal');
-    fs.writeFileSync('config.json', JSON.stringify({ aktywnosc: kanal.id }, null, 2));
-    return interaction.reply({ content: '✅ Kanał aktywności zapisany.', ephemeral: true });
-  }
-
-  // TEST AKTYWNOŚCI (OPCJA B: @everyone osobno na górze)
-  if (interaction.commandName === 'aktywnosc') {
-    await interaction.deferReply({ ephemeral: true });
-
-    if (!fs.existsSync('config.json')) {
-      return interaction.editReply('❌ Najpierw użyj /setup aktywnosc');
+    if (interaction.commandName === 'setup') {
+        const channel = interaction.options.getChannel('kanal');
+        fs.writeFileSync('aktywnosc.json', JSON.stringify({ channel: channel.id }));
+        return interaction.reply(`✅ Kanał aktywności ustawiony na ${channel}`);
     }
 
-    const { aktywnosc } = JSON.parse(fs.readFileSync('config.json'));
-    const channel = await client.channels.fetch(aktywnosc);
+    if (interaction.commandName === 'aktywnosc') {
+        const data = JSON.parse(fs.readFileSync('aktywnosc.json'));
+        const channel = await client.channels.fetch(data.channel);
 
-    // @everyone jako osobna wiadomość na samej górze
-    await channel.send('@everyone');
-
-    const embed = new EmbedBuilder()
-      .setTitle('📈 TEST AKTYWNOŚCI')
-      .setDescription(`
-💜 **WITAJCIE, Elicatowo!** 💜  
+        const embed = new EmbedBuilder()
+            .setColor('#ff66cc')
+            .setDescription(`💜 **WITAJCIE, Elicatowo!** 💜  
 👑 Czas sprawdzić, kto jest **NAJAKTYWNIEJSZY**  
-
 🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
 💬 pisz  
 💜 reaguj  
 👀 bądź widoczny  
-
-**AKTYWNOŚĆ = RESPEKT**
-
+**AKTYWNOŚĆ = RESPEKT**  
 👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:**  
 🐱 prestiż  
 🐱 uznanie  
 🐱 respekt  
+💜 **NIE ZNIKAJ — DZIAŁAJ** 💜`);
 
-💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
-      `)
-      .setColor(0x9b59b6)
-      .setTimestamp();
+        channel.send({ embeds: [embed] });
+        return interaction.reply({ content: '📢 Test aktywności wysłany!', ephemeral: true });
+    }
 
-    const msg = await channel.send({ embeds: [embed] });
-    await msg.react(POPCAT);
+    if (interaction.commandName === 'warn') {
+        const user = interaction.options.getUser('osoba');
+        const powod = interaction.options.getString('powod');
+        const mija = interaction.options.getString('mija');
 
-    return interaction.editReply('✅ Test aktywności wysłany.');
-  }
+        if (!warns[user.id]) warns[user.id] = 0;
+        warns[user.id]++;
+        fs.writeFileSync(warnsFile, JSON.stringify(warns, null, 2));
 
-  // EMBED
-  if (interaction.commandName === 'embed') {
-    const text = interaction.options.getString('tekst');
-    const title = interaction.options.getString('tytul');
-    const color = interaction.options.getString('kolor') || '#9b59b6';
+        const embed = new EmbedBuilder()
+            .setTitle('⚠️ Ostrzeżenie')
+            .addFields(
+                { name: 'Osoba', value: user.tag, inline: true },
+                { name: 'Powód', value: powod, inline: true },
+                { name: 'Godzina', value: new Date().toLocaleString(), inline: true },
+                { name: 'Mija', value: mija, inline: true },
+                { name: 'Warny', value: warns[user.id].toString(), inline: true }
+            )
+            .setColor('Red');
 
-    const embed = new EmbedBuilder()
-      .setDescription(text)
-      .setColor(color);
+        return interaction.reply({ embeds: [embed] });
+    }
 
-    if (title) embed.setTitle(title);
+    if (interaction.commandName === 'warn_remove') {
+        const user = interaction.options.getUser('osoba');
+        const ilosc = interaction.options.getInteger('ilosc');
 
-    await interaction.channel.send({ embeds: [embed] });
-    return interaction.reply({ content: '✅ Embed wysłany.', ephemeral: true });
-  }
+        warns[user.id] = Math.max(0, (warns[user.id] || 0) - ilosc);
+        fs.writeFileSync(warnsFile, JSON.stringify(warns, null, 2));
+
+        return interaction.reply(`➖ Usunięto ${ilosc} warnów. Teraz: ${warns[user.id]}`);
+    }
+
+    if (interaction.commandName === 'warn_clear') {
+        const user = interaction.options.getUser('osoba');
+        warns[user.id] = 0;
+        fs.writeFileSync(warnsFile, JSON.stringify(warns, null, 2));
+        return interaction.reply(`🧹 Wyczyszczono warny użytkownika ${user.tag}`);
+    }
+
+    if (interaction.commandName === 'warny') {
+        const user = interaction.options.getUser('osoba');
+        const count = warns[user.id] || 0;
+        return interaction.reply(`📊 ${user.tag} ma **${count}** warnów.`);
+    }
+
+    if (interaction.commandName === 'clear') {
+        const ilosc = interaction.options.getInteger('ilosc');
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
+            return interaction.reply({ content: '❌ Brak permisji', ephemeral: true });
+
+        await interaction.channel.bulkDelete(ilosc, true);
+        return interaction.reply({ content: `🗑 Usunięto ${ilosc} wiadomości`, ephemeral: true });
+    }
 });
 
-client.login(TOKEN);
+client.login('TWOJ_TOKEN');
