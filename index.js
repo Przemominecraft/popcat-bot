@@ -10,8 +10,8 @@ const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
 // === ENV ===
-const TOKEN = process.env.TOKEN; // bez cudzysłowów
-const CLIENT_ID = '1460601983097635050'; // ID twojej aplikacji
+const TOKEN = process.env.TOKEN; // token z hostingu
+const CLIENT_ID = '1460601983097635050';
 
 // === CLIENT ===
 const client = new Client({
@@ -41,7 +41,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
     console.log('✅ Komendy zarejestrowane');
   } catch (err) {
-    console.error('❌ Błąd rejestracji komend:', err);
+    console.error(err);
   }
 })();
 
@@ -56,12 +56,12 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: '❌ Tylko administrator może użyć tej komendy.', ephemeral: true });
+    return interaction.reply({ content: '❌ Tylko administrator.', ephemeral: true });
   }
 
   if (interaction.commandName === 'setup') {
     const channel = interaction.options.getChannel('kanal');
-    fs.writeFileSync('config.json', JSON.stringify({ channelId: channel.id }, null, 2));
+    fs.writeFileSync('config.json', JSON.stringify({ channelId: channel.id }));
     return interaction.reply({ content: `✅ Kanał ustawiony na ${channel}`, ephemeral: true });
   }
 
@@ -70,15 +70,20 @@ client.on('interactionCreate', async interaction => {
       return interaction.reply({ content: '❌ Najpierw użyj /setup', ephemeral: true });
     }
 
-    const config = JSON.parse(fs.readFileSync('config.json'));
-    const channel = await client.channels.fetch(config.channelId);
+    const { channelId } = JSON.parse(fs.readFileSync('config.json'));
+    const channel = await client.channels.fetch(channelId);
 
+    // 1️⃣ Ping
+    await channel.send('@everyone');
+
+    // 2️⃣ Embed
     const embed = new EmbedBuilder()
       .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
       .setDescription(`
 💜 **WITAJCIE, Elicatowo!** 💜  
 👑 **Czas sprawdzić, kto jest NAJAKTYWNIEJSZY**  
 🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
+
 💬 pisz na czatach  
 💜 reaguj emotkami  
 👀 bądź widoczny  
@@ -96,12 +101,12 @@ client.on('interactionCreate', async interaction => {
       .setFooter({ text: `Test wygenerowany przez ${interaction.user.tag}` })
       .setTimestamp();
 
-    // najpierw ping
-    await channel.send('@everyone');
-    // potem embed
-    await channel.send({ embeds: [embed] });
+    const msg = await channel.send({ embeds: [embed] });
 
-    return interaction.reply({ content: '✅ Test aktywności wysłany!', ephemeral: true });
+    // 3️⃣ Reakcja serwerowa
+    await msg.react('popcat'); // nazwa dokładnie jak emoji na serwerze
+
+    return interaction.reply({ content: '✅ Test wysłany!', ephemeral: true });
   }
 });
 
