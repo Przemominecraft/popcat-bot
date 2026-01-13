@@ -11,21 +11,18 @@ const fs = require('fs');
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = '1460601983097635050';
-const POPCAT_ID = '1460612078472794239';
+const POPCAT_EMOJI_ID = '1460612078472794239';
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ===== SLASH COMMANDS =====
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Ustaw kanał do testu aktywności')
-    .addChannelOption(option =>
-      option.setName('kanal')
-        .setDescription('Kanał')
-        .setRequired(true)
+    .setDescription('Ustaw kanał do wiadomości aktywności')
+    .addChannelOption(o =>
+      o.setName('kanal').setDescription('Kanał').setRequired(true)
     ),
 
   new SlashCommandBuilder()
@@ -34,83 +31,76 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('embed')
-    .setDescription('Wyślij wiadomość jako embed')
-    .addStringOption(option =>
-      option.setName('wiadomosc')
-        .setDescription('Treść embeda')
-        .setRequired(true)
+    .setDescription('Wyślij embed')
+    .addStringOption(o =>
+      o.setName('text').setDescription('Treść').setRequired(true)
+    )
+    .addStringOption(o =>
+      o.setName('title').setDescription('Tytuł (opcjonalne)')
+    )
+    .addStringOption(o =>
+      o.setName('color').setDescription('Kolor HEX np. #9b59b6 (opcjonalne)')
     )
 ].map(c => c.toJSON());
 
-// ===== REGISTER =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
+
 (async () => {
-  try {
-    console.log('Rejestruję komendy...');
-    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log('Komendy gotowe!');
-  } catch (e) {
-    console.error(e);
-  }
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+  console.log('Komendy zarejestrowane');
 })();
 
-// ===== READY =====
 client.once('ready', () => {
   console.log(`Zalogowano jako ${client.user.tag}`);
-  client.user.setActivity('Aktywność Serwera');
 });
 
-// ===== INTERACTIONS =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: '❌ Tylko administrator.', ephemeral: true });
+    return interaction.reply({ content: '❌ Tylko administracja.', ephemeral: true });
   }
 
-  // /setup
   if (interaction.commandName === 'setup') {
     const channel = interaction.options.getChannel('kanal');
     fs.writeFileSync('config.json', JSON.stringify({ channelId: channel.id }));
-    return interaction.reply({ content: '✅ Kanał zapisany.', ephemeral: true });
+    return interaction.reply({ content: '✅ Ustawiono kanał.', ephemeral: true });
   }
 
-  // /aktywnosc
   if (interaction.commandName === 'aktywnosc') {
     await interaction.deferReply({ ephemeral: true });
 
-    const config = JSON.parse(fs.readFileSync('config.json'));
-    const channel = await client.channels.fetch(config.channelId);
+    const { channelId } = JSON.parse(fs.readFileSync('config.json'));
+    const channel = await client.channels.fetch(channelId);
+
+    await channel.send('@everyone');
 
     const embed = new EmbedBuilder()
-      .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
-      .setDescription(`💜 **WITAJCIE, Elicatowo!** 💜
-👑 Sprawdzamy kto jest najaktywniejszy!
-💬 Pisz, reaguj, bądź widoczny!
-**AKTYWNOŚĆ = RESPEKT**`)
+      .setTitle('📈 TEST AKTYWNOŚCI')
+      .setDescription(`🔥 Pokaż, że jesteś aktywny!\n💬 Pisz • 💜 Reaguj • 👀 Bądź widoczny`)
+      .setFooter({ text: `Wygenerował: ${interaction.user.tag}` })
       .setColor(0x9b59b6)
-      .setFooter({ text: `Test wygenerowany przez ${interaction.user.tag}` })
       .setTimestamp();
 
-    const msg = await channel.send({ content: '@everyone', embeds: [embed] });
-    await msg.react(`<:popcat:${POPCAT_ID}>`);
+    const msg = await channel.send({ embeds: [embed] });
+    await msg.react(POPCAT_EMOJI_ID);
 
-    return interaction.editReply('✅ Gotowe!');
+    return interaction.editReply('✅ GOTOWE');
   }
 
-  // /embed
   if (interaction.commandName === 'embed') {
-    const text = interaction.options.getString('wiadomosc');
+    const text = interaction.options.getString('text');
+    const title = interaction.options.getString('title') || null;
+    const color = interaction.options.getString('color') || '#9b59b6';
 
     const embed = new EmbedBuilder()
-      .setTitle('📢 Wiadomość')
       .setDescription(text)
-      .setColor(0x9b59b6)
-      .setFooter({ text: `Wysłane przez ${interaction.user.tag}` })
-      .setTimestamp();
+      .setColor(color);
+
+    if (title) embed.setTitle(title);
 
     await interaction.channel.send({ embeds: [embed] });
-    return interaction.reply({ content: '✅ Embed wysłany.', ephemeral: true });
+    return interaction.reply({ content: '✅ Wysłano embed.', ephemeral: true });
   }
 });
 
