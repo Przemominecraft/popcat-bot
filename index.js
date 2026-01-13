@@ -21,121 +21,141 @@ const client = new Client({
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Ustaw kanał do wiadomości aktywności')
-    .addChannelOption(option =>
-      option.setName('kanal')
-        .setDescription('Kanał do wysyłania aktywności')
-        .setRequired(true)
+    .setDescription('Ustawienia bota')
+    .addSubcommand(sub =>
+      sub.setName('aktywnosc')
+        .setDescription('Ustaw kanał testu aktywności')
+        .addChannelOption(opt =>
+          opt.setName('kanal').setDescription('Kanał').setRequired(true)
+        )
     ),
 
   new SlashCommandBuilder()
     .setName('aktywnosc')
-    .setDescription('Wyślij test aktywności członków'),
+    .setDescription('Wyślij test aktywności'),
 
   new SlashCommandBuilder()
     .setName('embed')
-    .setDescription('Wyślij wiadomość w embedzie (admin)')
-    .addStringOption(o =>
-      o.setName('text').setDescription('Treść').setRequired(true)
-    )
-    .addStringOption(o =>
-      o.setName('title').setDescription('Tytuł (opcjonalny)').setRequired(false)
-    )
-    .addStringOption(o =>
-      o.setName('color').setDescription('Kolor hex np. #ff00ff (opcjonalny)').setRequired(false)
-    )
-].map(cmd => cmd.toJSON());
+    .setDescription('Wyślij embed')
+    .addStringOption(o => o.setName('text').setDescription('Treść').setRequired(true))
+    .addStringOption(o => o.setName('title').setDescription('Tytuł').setRequired(false))
+    .addStringOption(o => o.setName('color').setDescription('Kolor hex').setRequired(false)),
 
-// ===== REJESTRACJA =====
+  new SlashCommandBuilder()
+    .setName('warn')
+    .setDescription('Nadaj lub usuń warna')
+    .addSubcommand(sub =>
+      sub.setName('add')
+        .setDescription('Dodaj ostrzeżenie')
+        .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true))
+        .addStringOption(o => o.setName('powod').setDescription('Powód').setRequired(true))
+        .addStringOption(o => o.setName('termin').setDescription('Data lub Nigdy').setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub.setName('remove')
+        .setDescription('Usuń warny')
+        .addUserOption(o => o.setName('osoba').setDescription('Użytkownik').setRequired(true))
+        .addIntegerOption(o => o.setName('ilosc').setDescription('Ile usunąć').setRequired(true))
+    )
+].map(c => c.toJSON());
+
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
-  try {
-    console.log('⏳ Rejestruję komendy...');
-    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log('✅ Komendy zarejestrowane');
-  } catch (err) {
-    console.error(err);
-  }
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+  console.log('Komendy zarejestrowane');
 })();
 
-// ===== READY =====
 client.once('ready', () => {
-  console.log(`🤖 Zalogowano jako ${client.user.tag}`);
-  client.user.setActivity('Aktywność Serwera');
+  console.log(`Zalogowano jako ${client.user.tag}`);
+  client.user.setActivity('ELicatowo 🐱');
 });
 
-// ===== INTERAKCJE =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator))
+    return interaction.reply({ content: 'Brak uprawnień', ephemeral: true });
 
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: '❌ Tylko administrator.', ephemeral: true });
-  }
-
-  // /setup
+  // SETUP
   if (interaction.commandName === 'setup') {
-    const channel = interaction.options.getChannel('kanal');
-    fs.writeFileSync('config.json', JSON.stringify({ channelId: channel.id }, null, 2));
-    return interaction.reply({ content: `✅ Kanał ustawiony: ${channel}`, ephemeral: true });
+    const kanal = interaction.options.getChannel('kanal');
+    fs.writeFileSync('config.json', JSON.stringify({ aktywnosc: kanal.id }));
+    return interaction.reply({ content: 'Kanał aktywności zapisany', ephemeral: true });
   }
 
-  // /aktywnosc
+  // AKTYWNOSC
   if (interaction.commandName === 'aktywnosc') {
-    if (!fs.existsSync('config.json')) {
-      return interaction.reply({ content: '❌ Najpierw użyj /setup', ephemeral: true });
-    }
+    const config = JSON.parse(fs.readFileSync('config.json'));
+    const channel = await client.channels.fetch(config.aktywnosc);
 
-    const { channelId } = JSON.parse(fs.readFileSync('config.json'));
-    const channel = await client.channels.fetch(channelId);
+    const msg = await channel.send('@everyone');
 
     const embed = new EmbedBuilder()
-      .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
-      .setDescription(`
-💜 **WITAJCIE, Elicatowo!** 💜  
-👑 **Czas sprawdzić,**
-kto jest **NAJAKTYWNIEJSZY** na serwerze  
-🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
-💬 pisz  
-💜 reaguj  
-👀 bądź widoczny  
+      .setTitle('📈 TEST AKTYWNOŚCI')
+      .setDescription('Pokaż że jesteś aktywny!')
+      .setFooter({ text: `Wygenerował: ${interaction.user.tag}` })
+      .setColor(0x9b59b6);
 
-**AKTYWNOŚĆ = RESPEKT**
+    const sent = await channel.send({ embeds: [embed] });
+    await sent.react(POPCAT_EMOJI_ID);
 
-👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:**  
-🐱 prestiż  
-🐱 uznanie  
-🐱 respekt  
-`)
-      .setColor(0x9b59b6)
-      .setFooter({ text: `Test wygenerowany przez ${interaction.user.tag}` })
-      .setTimestamp();
-
-    const msg = await channel.send({
-      content: '@everyone',
-      embeds: [embed]
-    });
-
-    await msg.react(POPCAT_EMOJI_ID);
-
-    return interaction.reply({ content: '✅ GOTOWE', ephemeral: true });
+    return interaction.reply({ content: 'GOTOWE', ephemeral: true });
   }
 
-  // /embed
+  // EMBED
   if (interaction.commandName === 'embed') {
     const text = interaction.options.getString('text');
-    const title = interaction.options.getString('title');
-    const color = interaction.options.getString('color');
+    const title = interaction.options.getString('title') || 'Wiadomość';
+    const color = interaction.options.getString('color') || '9b59b6';
 
     const embed = new EmbedBuilder()
+      .setTitle(title)
       .setDescription(text)
-      .setTimestamp();
+      .setColor(`#${color}`);
 
-    if (title) embed.setTitle(title);
-    if (color) embed.setColor(color);
+    return interaction.reply({ embeds: [embed] });
+  }
 
-    await interaction.channel.send({ embeds: [embed] });
-    return interaction.reply({ content: '✅ Wysłano embed.', ephemeral: true });
+  // WARN
+  if (interaction.commandName === 'warn') {
+    if (!fs.existsSync('warns.json')) fs.writeFileSync('warns.json', '{}');
+    const warns = JSON.parse(fs.readFileSync('warns.json'));
+
+    if (interaction.options.getSubcommand() === 'add') {
+      const user = interaction.options.getUser('osoba');
+      const powod = interaction.options.getString('powod');
+      const termin = interaction.options.getString('termin');
+
+      if (!warns[user.id]) warns[user.id] = 0;
+      warns[user.id]++;
+
+      fs.writeFileSync('warns.json', JSON.stringify(warns, null, 2));
+
+      const embed = new EmbedBuilder()
+        .setTitle('⚠️ Ostrzeżenie')
+        .addFields(
+          { name: 'Osoba', value: user.toString() },
+          { name: 'Powód', value: powod },
+          { name: 'Mija', value: termin },
+          { name: 'Warny', value: warns[user.id].toString() }
+        )
+        .setColor(0xe74c3c)
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [embed] });
+    }
+
+    if (interaction.options.getSubcommand() === 'remove') {
+      const user = interaction.options.getUser('osoba');
+      const ilosc = interaction.options.getInteger('ilosc');
+
+      if (!warns[user.id]) warns[user.id] = 0;
+      warns[user.id] = Math.max(0, warns[user.id] - ilosc);
+
+      fs.writeFileSync('warns.json', JSON.stringify(warns, null, 2));
+
+      return interaction.reply(`Usunięto warny. Aktualnie: ${warns[user.id]}`);
+    }
   }
 });
 
