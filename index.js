@@ -1,21 +1,30 @@
-const { Client, GatewayIntentBits, PermissionsBitField, SlashCommandBuilder, Routes } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  PermissionsBitField,
+  SlashCommandBuilder,
+  Routes
+} = require('discord.js');
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
-const TOKEN = 'process.env.TOKEN;';
-const CLIENT_ID = '1460584718021034129';
+// === ENV ===
+const TOKEN = process.env.TOKEN; // ❗ BEZ STRINGA
+const CLIENT_ID = '1460601983097635050'; // ID NOWEJ aplikacji
 
+// === CLIENT ===
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ----- KOMENDY -----
+// === KOMENDY ===
 const commands = [
   new SlashCommandBuilder()
     .setName('setup')
     .setDescription('Ustaw kanał do wiadomości aktywności')
     .addChannelOption(option =>
-      option.setName('kanal')
+      option
+        .setName('kanal')
         .setDescription('Kanał do wysyłania aktywności')
         .setRequired(true)
     ),
@@ -25,6 +34,7 @@ const commands = [
     .setDescription('Wyślij test aktywności członków')
 ].map(cmd => cmd.toJSON());
 
+// === REJESTRACJA KOMEND ===
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
@@ -36,70 +46,95 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     );
     console.log('✅ Komendy zarejestrowane');
   } catch (err) {
-    console.error(err);
+    console.error('❌ Błąd rejestracji komend:', err);
   }
 })();
 
-// ----- BOT -----
+// === READY ===
 client.once('ready', () => {
   console.log(`🤖 Zalogowano jako ${client.user.tag}`);
   client.user.setActivity('Aktywność Serwera');
 });
 
+// === INTERAKCJE ===
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   // tylko administrator
   if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: '❌ Tylko administrator może użyć tej komendy.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Tylko administrator może użyć tej komendy.',
+      ephemeral: true
+    });
   }
 
+  // /setup
   if (interaction.commandName === 'setup') {
     const channel = interaction.options.getChannel('kanal');
-
     const config = { channelId: channel.id };
+
     fs.writeFileSync('config.json', JSON.stringify(config, null, 2));
 
-    return interaction.reply(`✅ Kanał ustawiony na ${channel}`);
+    return interaction.reply({
+      content: `✅ Kanał ustawiony na ${channel}`,
+      ephemeral: true
+    });
   }
 
+  // /aktywnosc
   if (interaction.commandName === 'aktywnosc') {
-    const config = JSON.parse(fs.readFileSync('config.json'));
-
-    if (!config.channelId) {
-      return interaction.reply({ content: '❌ Najpierw użyj /setup', ephemeral: true });
+    if (!fs.existsSync('config.json')) {
+      return interaction.reply({
+        content: '❌ Najpierw użyj /setup',
+        ephemeral: true
+      });
     }
 
+    const config = JSON.parse(fs.readFileSync('config.json'));
     const channel = await client.channels.fetch(config.channelId);
 
-    const message = `
-📈 **TEST AKTYWNOŚCI CZŁONKÓW**
-
+    const embed = new EmbedBuilder()
+  .setTitle('📈 TEST AKTYWNOŚCI CZŁONKÓW')
+  .setDescription(`
 @everyone
 
-💜 **WITAJCIE, Elicatowo!** 💜
-
+💜 **WITAJCIE, Elicatowo!** 💜  
 👑 **Czas sprawdzić,**
-kto jest **NAJAKTYWNIEJSZY** na serwerze
+kto jest **NAJAKTYWNIEJSZY** na serwerze  
 
-🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥
-💬 pisz na czatach
-💜 reaguj emotkami
-👀 bądź widoczny
+🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
+💬 pisz na czatach  
+💜 reaguj emotkami  
+👀 bądź widoczny  
 
 **AKTYWNOŚĆ = RESPEKT**
 
-👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:**
-🐱 prestiż
-🐱 uznanie
-🐱 respekt
+👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:**  
+🐱 prestiż  
+🐱 uznanie  
+🐱 respekt  
+
+💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
+`)
+  .setColor(0x9b59b6)
+  .setFooter({
+    text: `Test wygenerowany przez ${interaction.user.tag}`
+  })
+  .setTimestamp();
+
+await channel.send({ embeds: [embed] });
 
 💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
 `;
 
     await channel.send(message);
-    await interaction.reply({ content: '✅ Wiadomość wysłana!', ephemeral: true });
+
+    return interaction.reply({
+      content: '✅ Wiadomość wysłana!',
+      ephemeral: true
+    });
   }
 });
 
+// === LOGIN ===
 client.login(TOKEN);
