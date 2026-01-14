@@ -9,6 +9,7 @@ const POPCAT = '460235965317648514';
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 if (!fs.existsSync('warns.json')) fs.writeFileSync('warns.json', JSON.stringify({}));
+if (!fs.existsSync('config.json')) fs.writeFileSync('config.json', JSON.stringify({}));
 
 const commands = [
   new SlashCommandBuilder()
@@ -85,22 +86,37 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'setup') {
     const kanal = interaction.options.getChannel('kanal');
     fs.writeFileSync('config.json', JSON.stringify({ aktywnosc: kanal.id }, null, 2));
-    return interaction.reply({ content: '✅ Kanał zapisany.', ephemeral: true });
+    return interaction.reply({ content: '✅ Kanał aktywności zapisany.', ephemeral: true });
   }
 
   if (interaction.commandName === 'aktywnosc') {
     const { aktywnosc } = JSON.parse(fs.readFileSync('config.json'));
     const channel = await client.channels.fetch(aktywnosc);
+
     await channel.send('@everyone');
 
     const embed = new EmbedBuilder()
       .setTitle('📈 TEST AKTYWNOŚCI')
-      .setDescription('AKTYWNOŚĆ = RESPEKT 💜')
-      .setColor(0x9b59b6);
+      .setDescription(`
+💜 **WITAJCIE, Elicatowo!** 💜  
+👑 Czas sprawdzić, kto jest **NAJAKTYWNIEJSZY**  
+🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
+💬 pisz  
+💜 reaguj  
+👀 bądź widoczny  
+**AKTYWNOŚĆ = RESPEKT**
+👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:**  
+🐱 prestiż  
+🐱 uznanie  
+🐱 respekt  
+💜 **NIE ZNIKAJ — DZIAŁAJ** 💜
+      `)
+      .setColor(0x9b59b6)
+      .setTimestamp();
 
     const msg = await channel.send({ embeds: [embed] });
     await msg.react(POPCAT);
-    return interaction.reply({ content: '✅ Test wysłany.', ephemeral: true });
+    return interaction.reply({ content: '✅ Test aktywności wysłany.', ephemeral: true });
   }
 
   if (interaction.commandName === 'warn' && interaction.options.getSubcommand() === 'add') {
