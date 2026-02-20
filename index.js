@@ -145,7 +145,7 @@ client.on('interactionCreate', async interaction => {
       .setTimestamp();
 
     const msg = await channel.send({ embeds: [embed] });
-    await msg.react(POPCAT);
+    await msg.react(💜);
 
     return interaction.reply({ content: '✅ Test aktywności wysłany.', ephemeral: true });
   }
@@ -191,5 +191,6 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(TOKEN);
+
 
 
