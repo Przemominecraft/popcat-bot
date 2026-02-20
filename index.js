@@ -124,7 +124,7 @@ client.on('interactionCreate', async interaction => {
     const embed = new EmbedBuilder()
       .setTitle('📈 TEST AKTYWNOŚCI')
       .setDescription(`
-💜 **WITAJCIE, Elicatowo!** 💜  
+💜 **WITAJCIE, FragZone!** 💜  
 👑 Czas sprawdzić, kto jest **NAJAKTYWNIEJSZY**  
 🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
 
@@ -191,3 +191,4 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(TOKEN);
+
