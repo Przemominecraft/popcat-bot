@@ -8,13 +8,25 @@ const {
 } = require('discord.js');
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
+const http = require('http'); // DODANO
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = '1474428394958749789';
 const POPCAT = '460235965317648514';
 
+// ===== SERWER DLA RAILWAY (Żeby bot nie padał) =====
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Bot is online!');
+}).listen(process.env.PORT || 8080);
+// =================================================
+
 const client = new Client({ 
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] 
+  intents: [
+    GatewayIntentBits.Guilds, 
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent // Warto dodać dla pewności
+  ] 
 });
 
 if (!fs.existsSync('warns.json')) fs.writeFileSync('warns.json', '{}');
@@ -82,8 +94,12 @@ const commands = [
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
-  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-  console.log('✅ Komendy zarejestrowane');
+  try {
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log('✅ Komendy zarejestrowane');
+  } catch (err) {
+    console.error('❌ Błąd rejestracji:', err);
+  }
 })();
 
 client.once('ready', () => {
@@ -99,7 +115,9 @@ function saveConfig(data) {
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator))
+  
+  // Sprawdzanie uprawnień (Admin LUB Ty jako właściciel)
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) && interaction.user.id !== POPCAT)
     return interaction.reply({ content: '❌ Tylko administracja.', ephemeral: true });
 
   const cfg = getConfig();
@@ -118,15 +136,17 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'aktywnosc') {
-    const channel = await client.channels.fetch(cfg.aktywnosc);
+    const channelId = cfg.aktywnosc;
+    if (!channelId) return interaction.reply({ content: '❌ Najpierw ustaw kanał przez /setup aktywnosc', ephemeral: true });
+    
+    const channel = await client.channels.fetch(channelId);
     await channel.send('@everyone');
 
     const embed = new EmbedBuilder()
       .setTitle('📈 TEST AKTYWNOŚCI')
       .setDescription(`
 💜 **WITAJCIE, FragZone!** 💜  
-👑 Czas sprawdzić, kto jest **NAJAKTYWNIEJSZY**  
-🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
+👑 Czas sprawdzić, kto jest **NAJAKTYWNIEJSZY** 🔥 **POKAŻ, ŻE TU JESTEŚ** 🔥  
 
 💬 pisz  
 💜 reaguj  
@@ -134,8 +154,7 @@ client.on('interactionCreate', async interaction => {
 
 **AKTYWNOŚĆ = RESPEKT**
 
-👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:**  
-🐱 prestiż  
+👑 **NAJAKTYWNIEJSI ZGARNIAJĄ:** 🐱 prestiż  
 🐱 uznanie  
 🐱 respekt  
 
@@ -145,11 +164,13 @@ client.on('interactionCreate', async interaction => {
       .setTimestamp();
 
     const msg = await channel.send({ embeds: [embed] });
-    await msg.react(💜);
+    await msg.react('💜'); // Zmieniono z POPCAT na emoji
 
     return interaction.reply({ content: '✅ Test aktywności wysłany.', ephemeral: true });
   }
 
+  // ... (reszta komend bez zmian)
+  
   if (interaction.commandName === 'warn') {
     const user = interaction.options.getUser('user');
     const powod = interaction.options.getString('powod');
@@ -179,7 +200,7 @@ client.on('interactionCreate', async interaction => {
     const ilosc = interaction.options.getInteger('ilosc');
     await interaction.channel.bulkDelete(ilosc, true);
     const msg = await interaction.reply({ content: `🧹 Usunięto ${ilosc} wiadomości.`, fetchReply: true });
-    setTimeout(() => msg.delete(), 3000);
+    setTimeout(() => msg.delete().catch(console.error), 3000);
   }
 
   if (interaction.commandName === 'bump') {
@@ -191,6 +212,3 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(TOKEN);
-
-
-
