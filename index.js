@@ -10,7 +10,7 @@ const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 
 const TOKEN = process.env.TOKEN;
-const CLIENT_ID = '1460601983097635050';
+const CLIENT_ID = '1474428394958749789';
 const POPCAT = '460235965317648514';
 
 const client = new Client({ 
@@ -191,4 +191,5 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(TOKEN);
+
 
